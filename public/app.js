@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const body = activeCanvasItem.querySelector('.item-body');
-        body.innerHTML = `<span style="color: #666; font-style: italic;">⏳ Soru Seti Hazırlanıyor...</span>`;
+        body.innerHTML = `<span style="color: #666; font-style: italic;">⏳ Hazırlanıyor...</span>`;
 
         try {
             const response = await fetch('/api/generate', {
@@ -264,24 +264,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
 
-            if (data.status === "NO_ACTION") {
-                let formattedText = data.message
-                    .replace(/\n/g, '<br>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+            if (data.status === "SUCCESS") {
 
-                body.innerHTML = `<div style="line-height: 1.6; color: #333;">${formattedText}</div>`;
-            } else if (data.status === "SUCCESS") {
-                if (data.data && data.data.html) {
-                    body.innerHTML = data.data.html;
+                // HTML içerik direkt basılır
+                if (data.content && data.content.trim() !== ""){
+                    body.innerHTML = "";
+                    const wrapper = document.createElement("div");
+                    wrapper.innerHTML = data.content;
+                    body.appendChild(wrapper);
                 } else {
-                    body.innerHTML = `<div style="padding: 10px; background: #f0fdf4; border-left: 4px solid #4ade80;">
-                        <strong>✅ İşlem Başarılı:</strong><br>
-                        <pre style="font-size: 11px; margin-top: 5px;">${JSON.stringify(data.data, null, 2)}</pre>
-                    </div>`;
+                    body.innerHTML = `<span style="color: gray;">İçerik üretilemedi</span>`;
                 }
+
+            } else if (data.status === "ERROR") {
+
+                body.innerHTML = `
+                    <span style="color: #e53e3e;">
+                        🚨 Hata: ${data.message}
+                    </span>
+                `;
+
             } else {
-                body.innerHTML = `<span style="color: #e53e3e;">🚨 Hata: ${data.message}</span>`;
+
+                body.innerHTML = `
+                    <span style="color: red;">
+                        ❌ Bilinmeyen durum
+                    </span>
+                `;
             }
         } catch (error) {
             body.innerHTML = `<span style="color: red;">❌ Bağlantı hatası!</span>`;
@@ -496,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    function renderPageFromJSON(plan) {
+    async function renderPageFromJSON(plan) {
         const canvas = document.getElementById("canvas");
         
         // Önceki tuvali tamamen temizle
@@ -504,14 +513,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const emptyState = document.querySelector('.empty-state');
         if (emptyState) emptyState.style.display = 'none';
 
-        plan.layout.forEach(row => {
+        for (const row of plan.layout) {
             const rowDiv = document.createElement("div");
             rowDiv.style.display = "flex";
             rowDiv.style.gap = "15px";
             rowDiv.style.marginBottom = "15px";
             rowDiv.style.width = "100%";
 
-            row.children.forEach(block => {
+            for (const block of row.children) {
                 const repeat = block.count || 1;
 
                 for (let i = 0; i < repeat; i++) {
@@ -585,13 +594,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     rowDiv.appendChild(item);
 
                     // 4. Bloğun içini doldurması için Yapay Zekaya gönder!
-                    generateContent(contentDiv, block);
+                    await generateContent(contentDiv, block);
                 }
-            });
+            }
 
             canvas.appendChild(rowDiv);
-        });
+        }
     }
+    
 
     async function generateContent(container, block) {
         try {
@@ -615,18 +625,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
 
-            // Sadece başarılı dönen HTML'i kutunun içine bas
-            if (data.status === "NO_ACTION") {
-                container.innerHTML = data.message;
+            if (data.status === "SUCCESS") {
+
+                if (data.type === "html") {
+                    container.innerHTML = data.content;
+                } else {
+                    container.innerText = data.content;
+                }
+
+            } else if (data.status === "NO_ACTION") {
+
+                let formattedText = data.message
+                    .replace(/\n/g, '<br>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+                container.innerHTML = `<div style="line-height:1.6;color:#333;">${formattedText}</div>`;
+
             } else {
-                container.innerHTML = `<span style="color: #e53e3e;">🚨 Yapay zeka yanıt veremedi.</span>`;
+
+                container.innerHTML = `<span style="color:red;">🚨 ${data.message}</span>`;
+
             }
 
         } catch (err) {
             container.innerHTML = `<span style="color: red;">❌ İnternet veya bağlantı hatası</span>`;
         }
     }
-
 }); 
 
 
