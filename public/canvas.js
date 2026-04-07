@@ -5,6 +5,43 @@ let activeCanvasItem = null;
 let dragSourceItem = null;
 let uiElements = {};
 
+// --- YENİ: BEDAVA VE SINIRSIZ SES MOTORU (Web Speech API) ---
+function addAudioSupport(item, contentDiv, type) {
+    // Sadece okunabilir bloklara (Metin ve Soru) ses butonu ekliyoruz
+    if (type === 'text' || type.startsWith('quiz')) {
+        const playBtn = document.createElement('button');
+        playBtn.innerHTML = '🔊';
+        playBtn.title = 'Sesli Oku / Durdur';
+        // Çöp kutusunun hemen yanına yerleştiriyoruz
+        playBtn.style.cssText = "position: absolute; top: 5px; right: 35px; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 14px; z-index: 10; transition: 0.2s;";
+        
+        playBtn.onmouseover = () => playBtn.style.transform = "scale(1.1)";
+        playBtn.onmouseout = () => playBtn.style.transform = "scale(1)";
+
+        playBtn.onclick = (e) => {
+            e.stopPropagation(); // Tuvale tıklama olayını (seçmeyi) engelleme
+            
+            if (!('speechSynthesis' in window)) {
+                return alert("Tarayıcınız sesli okumayı desteklemiyor.");
+            }
+            
+            // Eğer o an konuşuyorsa sustur
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            } else {
+                // Konuşmuyorsa, kutunun içindeki metni alıp okut
+                let textToRead = contentDiv.innerText.replace('🔊', '').replace('×', ''); // Butonları okumasın
+                const utterance = new SpeechSynthesisUtterance(textToRead);
+                utterance.lang = 'tr-TR'; // Türkçe telaffuz
+                utterance.rate = 0.9; // Biraz yavaş ve tane tane okusun
+                speechSynthesis.speak(utterance);
+            }
+        };
+        item.appendChild(playBtn);
+    }
+}
+// -----------------------------------------------------------
+
 // Tuvali başlatan ana fonksiyon
 export function initCanvasCore(elements) {
     uiElements = elements;
@@ -57,6 +94,8 @@ export function createCanvasItem(type, name) {
     contentDiv.className = 'item-body';
     contentDiv.innerHTML = `<span style="color: #999;">[Boş ${name}] - Üretmek için tıklayın.</span>`;
     item.appendChild(contentDiv);
+
+    addAudioSupport(item, contentDiv, type);
 
     if (type === 'text') {
         contentDiv.setAttribute('contenteditable', 'true');
@@ -170,6 +209,7 @@ export async function renderPageFromJSON(plan) {
                 contentDiv.className = 'item-body';
                 contentDiv.innerHTML = `<span style="color: #666; font-style: italic;">⏳ Yapay Zeka Çiziyor...</span>`;
                 item.appendChild(contentDiv);
+                addAudioSupport(item, contentDiv, type);
 
                 if (type === 'text') {
                     contentDiv.setAttribute('contenteditable', 'true');
