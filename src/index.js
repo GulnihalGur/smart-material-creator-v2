@@ -190,7 +190,8 @@ app.post('/api/generate', async (req, res) => {
         3. Sadece benden istenen kısmı değiştir, geri kalan her şeyi birebir aynı bırak.
         
         EĞER YENİ BİR SORU İSTENİYORSA: Belirtilen soru tipine uygun, kaliteli 1 adet soru hazırla.
-        
+        PEDAGOJİK KURAL: Eğer şıklı bir soru üretiyorsan, şıkların zorluk seviyeleri birbirine ÇOK YAKIN olmalıdır. Absürt, komik veya bariz yanlış olan zayıf çeldiriciler KULLANMA. Çeldiriciler konuya ait bilimsel olarak mantıklı yanılgılardan oluşmalıdır.
+
         MUTLAK KURAL (SIFIR TOLERANS): Çıktın SADECE VE SADECE aşağıdaki HTML kodundan oluşmalıdır!
         "İşte hazırladığım soru", "Tabii ki" gibi HİÇBİR sohbet veya giriş cümlesi KESİNLİKLE YAZMA. 
         Doğrudan <div ile başla ve </div> ile bitir. Markdown (\`\`\`) işaretleri KULLANMA!
@@ -352,47 +353,40 @@ app.post('/api/page-plan', async (req, res) => {
     }
 
     try {
-        console.log(`\n🏗️ [PAGE ORCHESTRATOR] Sayfa Mimarisi Çiziliyor...`);
+        console.log(`\n [PAGE ORCHESTRATOR] Sayfa Mimarisi Çiziliyor...`);
         console.log(`Talebiniz: "${prompt}"`);
 
         // 1. MUAZZAM SIFIR TOLERANS PROMPTUMUZ
         const orchestratorPrompt = `
-        Sen JoedTech platformunun Baş Sayfa Tasarımcısı ve Eğitim Koçusun.
-        Görevin, kullanıcının konusuna en uygun E-Kitap sayfa mizanpajını (layout) oluşturmak ve SADECE JSON formatında yanıt vermektir.
+        GÖREV: Konuya uygun E-Kitap sayfa mizanpajı (layout) JSON'ı oluştur.
+        KONU: ${prompt}
 
-        SORU (QUIZ) ÜRETİM KURALLARI:
-        1. "quiz-mcq" (Çoktan Seçmeli - Detaylı bilgi)
-        2. "quiz-fill" (Boşluk Doldurma - Terim ezberi)
-        3. "quiz-truefalse" (Doğru/Yanlış - Kesin yargılar)
-        4. "quiz-short" (Kısa Cevap - Kavramsal anlama)
+        PEDAGOJİK SORU SEÇİMİ (Konuya en uygun 1-2 tanesini seç):
+        - "quiz-mcq": Detaylı bilgi ölçümü
+        - "quiz-fill": Terim/kavram ezberi
+        - "quiz-truefalse": Kesin ve net yargılar
+        - "quiz-short": Kavramsal anlama
 
-        KARAR MEKANİZMASI:
-        - Kullanıcının isteğini pedagojik olarak analiz et. Konuya en uygun olan 1 veya 2 soru tipini sen seç.
-        - Metin, görsel ve soru bloklarını mantıklı satırlara (row) böl. Görselleri genelde metinlerin yanına (aynı satıra) koy.
+        KURAL: SADECE GEÇERLİ JSON DÖNDÜR. Asla açıklama veya \`\`\` kullanma. Görselleri metinlerin yanına (aynı row içine) koy.
 
-        MUTLAK KURAL: Çıktın SADECE VE SADECE aşağıdaki JSON şemasında olmalıdır. Başında veya sonunda hiçbir açıklama yapma! Kod bloğu (\`\`\`) kullanma!
-
-        ÖRNEK JSON ŞEMASI:
+        JSON ŞABLONU:
         {
-          "status": "PAGE_ORCHESTRATED",
           "layout": [
             {
               "type": "row",
               "children": [
-                { "type": "text", "prompt": "Konu hakkında detaylı bilgi" },
-                { "type": "image", "prompt": "Konuyla ilgili detaylı İNGİLİZCE görsel promptu" }
+                { "type": "text", "prompt": "Detaylı konu anlatımı" },
+                { "type": "image", "prompt": "Detaylı İNGİLİZCE görsel betimlemesi" }
               ]
             },
             {
               "type": "row",
               "children": [
-                { "type": "quiz-mcq", "prompt": "Zorlayıcı bir test sorusu" }
+                { "type": "quiz-mcq", "prompt": "Zorlayıcı test sorusu" }
               ]
             }
           ]
         }
-
-        KULLANICI TALEBİ: ${prompt}
         `;
 
         // Llama 3'ten mimariyi istiyoruz

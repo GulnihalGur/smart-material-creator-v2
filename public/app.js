@@ -464,24 +464,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const aiPanel = document.getElementById("ai-controls");
         const noSel = document.getElementById("no-selection");
         const promptInput = document.getElementById("ai-prompt");
+        const btn = document.getElementById("generatePageBtn"); 
 
-        // 🔥 Panel kapalıysa aç (ilk tıklama)
+        // Panel kapalıysa aç (ilk tıklama)
         if (aiPanel.style.display === "none") {
             aiPanel.style.display = "block";
             noSel.style.display = "none";
             document.getElementById("selected-type").innerText = "Tüm Sayfa";
 
             promptInput.focus();
-            return; // ❗ hemen üretme
+            return; 
         }
 
-        // 🔥 Panel açıksa → üret (ikinci tıklama)
         const prompt = promptInput.value;
 
         if (!prompt) {
             alert("Ne oluşturmak istediğini yaz 😄");
             return;
         }
+
+        // KULLANICIYI KİLİTLE VE BİLGİLENDİR
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ Mimari Çiziliyor...';
+        btn.disabled = true; // Sabırsız tıklamaları engelle
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'not-allowed';
+
+        // Tuvali temizleyip kullanıcıya yükleniyor mesajı verelim
+        const canvas = document.getElementById("canvas");
+        canvas.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: #4a5568;">
+                <div style="font-size: 24px; margin-bottom: 10px;">🏗️</div>
+                <div style="font-weight: bold;">Yapay Zeka Sayfa Mimarisi Tasarlıyor...</div>
+                <div style="font-size: 12px; color: #a0aec0; margin-top: 5px;">Lütfen bekleyin, bu işlem birkaç saniye sürebilir.</div>
+            </div>
+        `;
 
         try {
             const res = await fetch("/api/page-plan", {
@@ -495,12 +512,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const data = await res.json();
-
+            
+            // Plan geldiğinde butonu "İçerikler üretiliyor" olarak güncelle
+            btn.innerHTML = '✨ İçerikler Üretiliyor...';
+            
+            // Sayfayı çiz! (Senin renderPageFromJSON ve arkadaşının sıralı generateContent döngüsü çalışacak)
             renderPageFromJSON(data);
 
         } catch (err) {
             console.error(err);
-            alert("Hata oluştu");
+            canvas.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">❌ Bir hata oluştu. Lütfen tekrar deneyin.</div>`;
+        } finally {
+            // İŞLEM BİTİNCE BUTONU ESKİ HALİNE GETİR
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
         }
     });
 
