@@ -7,41 +7,54 @@ let uiElements = {};
 
 // Ses Motoru
 function addAudioSupport(item, contentDiv, type) {
-    // Sadece okunabilir bloklara (Metin ve Soru) ses butonu ekliyoruz
     if (type === 'text' || type.startsWith('quiz')) {
         const playBtn = document.createElement('button');
         playBtn.innerHTML = '🔊';
         playBtn.title = 'Sesli Oku / Durdur';
-        // Çöp kutusunun hemen yanına yerleştiriyoruz
         playBtn.style.cssText = "position: absolute; top: 5px; right: 35px; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 14px; z-index: 10; transition: 0.2s;";
-        
+
         playBtn.onmouseover = () => playBtn.style.transform = "scale(1.1)";
         playBtn.onmouseout = () => playBtn.style.transform = "scale(1)";
 
+        // DİNLE-ANLA (BLUR) EFEKTİ: Eğer bu bir soruysa (quiz), metni gizle!
+        if (type.startsWith('quiz')) {
+            contentDiv.style.filter = "blur(6px)";
+            contentDiv.style.transition = "filter 0.4s ease"; // Şık bir açılma animasyonu
+            contentDiv.style.cursor = "help"; // Fare imlecini soru işaretine çevirir
+            contentDiv.title = "Soruyu dinlemek için 🔊 butonuna basın veya metni görmek için tıklayın.";
+
+            // Eğer öğrenci pes edip metnin üzerine tıklarsa bluru kaldır
+            contentDiv.addEventListener('click', () => {
+                contentDiv.style.filter = "blur(0px)";
+            });
+        }
+
         playBtn.onclick = (e) => {
-            e.stopPropagation(); // Tuvale tıklama olayını (seçmeyi) engelleme
-            
+            e.stopPropagation(); // Tuvale tıklama olayını engelle
+
             if (!('speechSynthesis' in window)) {
                 return alert("Tarayıcınız sesli okumayı desteklemiyor.");
             }
-            
-            // Eğer o an konuşuyorsa sustur
+
+            // 🔥 Sese basıldığı an metin bulanıksa hemen netleştir!
+            if (type.startsWith('quiz')) {
+                contentDiv.style.filter = "blur(0px)";
+            }
+
             if (speechSynthesis.speaking) {
                 speechSynthesis.cancel();
             } else {
-                // Konuşmuyorsa, kutunun içindeki metni alıp okut
-                let textToRead = contentDiv.innerText.replace('🔊', '').replace('×', ''); // Butonları okumasın
+                let textToRead = contentDiv.innerText.replace('🔊', '').replace('×', '');
                 const utterance = new SpeechSynthesisUtterance(textToRead);
                 
-                // Otomatik Dil Algılama (Basit Versiyon)
-                // Eğer metinde İngilizce'ye özgü çok sık geçen kelimeler varsa en-US yap
+                // Otomatik Dil Algılama (İngilizce / Türkçe)
                 const englishPattern = /\b(the|is|and|are|in|on|at|of)\b/gi;
                 if (englishPattern.test(textToRead)) {
-                    utterance.lang = 'en-US'; // İngilizce telaffuz
-                    utterance.rate = 1.0;     // Normal hız
+                    utterance.lang = 'en-US';
+                    utterance.rate = 1.0;     
                 } else {
-                    utterance.lang = 'tr-TR'; // Türkçe telaffuz
-                    utterance.rate = 0.9;     // Biraz yavaş ve tane tane
+                    utterance.lang = 'tr-TR'; 
+                    utterance.rate = 0.9;     
                 }
 
                 speechSynthesis.speak(utterance);
