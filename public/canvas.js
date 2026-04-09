@@ -86,54 +86,93 @@ function startVoiceExam(btn, contentDiv) {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'tr-TR'; // Öğrencinin Türkçe cevap vereceğini varsayıyoruz
+    recognition.lang = 'tr-TR'; 
     recognition.interimResults = false;
 
-    // Butonu kırmızı mikrofon moduna geçir
-    btn.innerHTML = '🎤 Cevabınızı Söyleyin...';
+    btn.innerHTML = '🎤 Dinliyor... Konuşun';
     btn.style.background = '#fed7d7';
     btn.style.color = '#c53030';
     btn.style.borderColor = '#fc8181';
 
-    recognition.onstart = () => {
-        console.log("🎤 Mikrofon dinliyor...");
-    };
-
     recognition.onresult = (event) => {
-        // Öğrencinin söylediği kelimeyi al
-        const transcript = event.results[0][0].transcript;
+        // 1. Öğrencinin söylediği metni al, küçült ve temizle
+        const transcript = event.results[0][0].transcript.toLowerCase().trim();
         
-        // 1. İhtimal: Eğer blokta bir input/textarea (Boşluk doldurma) varsa doğrudan oraya yaz!
+        // Öğrenci cevap verdiği an sorunun bluru tamamen kalkar
+        contentDiv.style.filter = "blur(0px)";
+
         const inputField = contentDiv.querySelector('input[type="text"], textarea');
         if (inputField) {
-            inputField.value = transcript;
+            inputField.value = transcript; 
         } else {
-            // 2. İhtimal: Çoktan seçmeli ise şıkkı kutunun altına zarifçe bir panelle bas
             let answerDisplay = contentDiv.querySelector('.voice-answer-display');
             if (!answerDisplay) {
                 answerDisplay = document.createElement('div');
                 answerDisplay.className = 'voice-answer-display';
-                answerDisplay.style.cssText = "margin-top: 15px; padding: 10px; background: #e6fffa; border-left: 4px solid #319795; font-weight: bold; color: #234e52; border-radius: 4px;";
                 contentDiv.appendChild(answerDisplay);
             }
-            answerDisplay.innerHTML = `🎤 Sesli Cevabınız: <span style="color: #285e61; font-weight: normal; font-style: italic;">"${transcript}"</span>`;
+
+            let isCorrect = false;
+            let checkMessage = "Değerlendiriliyor...";
+            let color = "#319795"; 
+            let bgColor = "#e6fffa";
+
+            // METNİ TEMİZLE: Kutu içindeki tüm HTML satır atlamalarını tek boşluğa indirger
+            const textContent = contentDiv.innerText.toLowerCase().replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ');
+            
+            // ZEKİ REGEX: "cevap" kelimesinden sonra gelen ilk a, b, c, d, e harfini yakalar.
+            // İster "Cevap: D)", ister "Cevap D" yazsın, sadece o harfi cımbızlar.
+            const correctMatch = textContent.match(/cevap.*?([a-e])([\)\.\s]|$)/);
+
+            if (correctMatch) {
+                const correctAnswer = correctMatch[1]; // Sadece 'a', 'b', 'c', 'd' veya 'e' çıkar
+                
+                // KAPSAMLI CEVAP KONTROLÜ
+                // Öğrenci "D tümü...", "D şıkkı", "D seçeneği" veya sadece "D" demiş olabilir
+                const firstWord = transcript.split(' ')[0].replace(/[\.\)]/g, ''); // Söylediği ilk kelime ("d")
+
+                if (
+                    transcript === correctAnswer || 
+                    firstWord === correctAnswer || 
+                    transcript.includes(`${correctAnswer} şıkkı`) ||
+                    transcript.includes(`${correctAnswer} seçeneği`)
+                ) {
+                    isCorrect = true;
+                    checkMessage = "✅ Tebrikler, Doğru Bildiniz!";
+                    color = "#2f855a"; // Yeşil
+                    bgColor = "#f0fff4";
+                } else {
+                    checkMessage = `❌ Yanlış Cevap. Doğrusu: ${correctAnswer.toUpperCase()} Şıkkı`;
+                    color = "#c53030"; // Kırmızı
+                    bgColor = "#fff5f5";
+                }
+            } else {
+                checkMessage = "Sesiniz kaydedildi (Yapay zeka kutu içinde doğru şıkkı bulamadı)";
+            }
+
+            // Sonucu ekrana bas
+            answerDisplay.style.cssText = `margin-top: 15px; padding: 10px; background: ${bgColor}; border-left: 4px solid ${color}; font-weight: bold; color: ${color}; border-radius: 4px; font-size: 14px;`;
+            answerDisplay.innerHTML = `🎤 Sesiniz: <span style="font-weight: normal; font-style: italic;">"${event.results[0][0].transcript}"</span> <br> <span style="display:block; margin-top:5px;">${checkMessage}</span>`;
+            
+            // Cevap verildikten sonra "Cevabı Göster" sekmesini otomatik aç
+            const detailsTag = contentDiv.querySelector('details');
+            if (detailsTag) detailsTag.open = true;
         }
     };
 
     recognition.onend = () => {
-        // Sınav bitince butonu eski haline getir
         btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
         btn.style.background = '#ebf8ff';
         btn.style.color = '#2b6cb0';
         btn.style.borderColor = '#90cdf4';
+        contentDiv.style.filter = "blur(0px)"; // Her ihtimale karşı bluru kaldır
     };
 
     recognition.onerror = (event) => {
         console.error("Mikrofon Hatası:", event.error);
-        btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
+        alert("Sizi duyamadım veya mikrofon izni verilmedi.");
     };
 
-    // Tarayıcıdan ilk kullanımda mikrofon izni isteyip dinlemeye başlar
     recognition.start();
 }
 
