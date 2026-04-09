@@ -1,6 +1,7 @@
 // public/app.js
 import { generatePagePlan, generateBlockContent } from './api.js';
 import { initCanvasCore, renderPageFromJSON, getActiveCanvasItem } from './canvas.js';
+import { addAudioSupport } from './voice.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Arayüz Elementlerini Seç

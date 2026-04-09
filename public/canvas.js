@@ -1,181 +1,9 @@
-// public/canvas.js
 import { generateBlockContent } from './api.js';
+import { addAudioSupport, initVoiceSummaryBlock } from './voice.js';
 
 let activeCanvasItem = null;
 let dragSourceItem = null;
 let uiElements = {};
-
-// Ses Motoru
-// GERÇEK SÖZLÜ SINAV MOTORU (Dinle & Konuş)
-export function addAudioSupport(item, contentDiv, type) { 
-    
-    // 🔥 YENİ: Eski bir ses butonu varsa onu sil (Çift buton çıkmasın)
-    const existingBtn = item.querySelector('.audio-btn');
-    if (existingBtn) existingBtn.remove();
-
-    if (type === 'text' || type.startsWith('quiz')) {
-        const playBtn = document.createElement('button');
-        playBtn.className = 'audio-btn'; // 🔥 YENİ: Butona sınıf verdik
-        
-        const isQuiz = type.startsWith('quiz');
-        playBtn.innerHTML = isQuiz ? '🔊 Sözlü Sınavı Başlat' : '🔊 Oku';
-        playBtn.title = isQuiz ? 'Soruyu Dinle ve Sesli Cevapla' : 'Sesli Oku / Durdur';
-        
-        playBtn.style.cssText = "position: absolute; top: 5px; right: 35px; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold; color: #2b6cb0; z-index: 10; transition: 0.2s;";
-
-        playBtn.onmouseover = () => playBtn.style.transform = "scale(1.05)";
-        playBtn.onmouseout = () => playBtn.style.transform = "scale(1)";
-
-        if (isQuiz) {
-            contentDiv.style.filter = "blur(6px)";
-            contentDiv.style.transition = "filter 0.4s ease";
-            contentDiv.style.cursor = "help";
-            contentDiv.title = "Soruyu dinlemek için Sözlü Sınav butonuna basın veya metni görmek için tıklayın.";
-
-            contentDiv.addEventListener('click', () => {
-                contentDiv.style.filter = "blur(0px)"; 
-            });
-        }
-
-        playBtn.onclick = (e) => {
-            e.stopPropagation(); 
-
-            if (!('speechSynthesis' in window)) return alert("Tarayıcınız sesli okumayı desteklemiyor.");
-
-            if (speechSynthesis.speaking) {
-                speechSynthesis.cancel();
-                return;
-            }
-
-            let textToRead = contentDiv.innerText.replace('🔊 Sözlü Sınavı Başlat', '').replace('🔊 Oku', '').replace('×', '');
-            const utterance = new SpeechSynthesisUtterance(textToRead);
-            
-            const englishPattern = /\b(the|is|and|are|in|on|at|of)\b/gi;
-            if (englishPattern.test(textToRead)) {
-                utterance.lang = 'en-US';
-                utterance.rate = 1.0;     
-            } else {
-                utterance.lang = 'tr-TR'; 
-                utterance.rate = 0.9;     
-            }
-
-            if (isQuiz) {
-                utterance.onstart = () => {
-                    playBtn.innerHTML = '🗣️ Soru Okunuyor...';
-                    playBtn.style.background = '#bee3f8';
-                };
-                
-                utterance.onend = () => {
-                    if(typeof startVoiceExam === "function") startVoiceExam(playBtn, contentDiv);   
-                };
-            }
-
-            speechSynthesis.speak(utterance);
-        };
-        item.appendChild(playBtn);
-    }
-}
-
-// DİNLEME (Sesten Metne) MOTORU
-function startVoiceExam(btn, contentDiv) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-        btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
-        return alert("Tarayıcınız mikrofonla ses tanımayı desteklemiyor (Lütfen Chrome kullanın).");
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'tr-TR'; 
-    recognition.interimResults = false;
-
-    btn.innerHTML = '🎤 Dinliyor... Konuşun';
-    btn.style.background = '#fed7d7';
-    btn.style.color = '#c53030';
-    btn.style.borderColor = '#fc8181';
-
-    recognition.onresult = (event) => {
-        // 1. Öğrencinin söylediği metni al, küçült ve temizle
-        const transcript = event.results[0][0].transcript.toLowerCase().trim();
-        
-        // Öğrenci cevap verdiği an sorunun bluru tamamen kalkar
-        contentDiv.style.filter = "blur(0px)";
-
-        const inputField = contentDiv.querySelector('input[type="text"], textarea');
-        if (inputField) {
-            inputField.value = transcript; 
-        } else {
-            let answerDisplay = contentDiv.querySelector('.voice-answer-display');
-            if (!answerDisplay) {
-                answerDisplay = document.createElement('div');
-                answerDisplay.className = 'voice-answer-display';
-                contentDiv.appendChild(answerDisplay);
-            }
-
-            let isCorrect = false;
-            let checkMessage = "Değerlendiriliyor...";
-            let color = "#319795"; 
-            let bgColor = "#e6fffa";
-
-            // METNİ TEMİZLE: Kutu içindeki tüm HTML satır atlamalarını tek boşluğa indirger
-            const textContent = contentDiv.innerText.toLowerCase().replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ');
-            
-            // ZEKİ REGEX: "cevap" kelimesinden sonra gelen ilk a, b, c, d, e harfini yakalar.
-            // İster "Cevap: D)", ister "Cevap D" yazsın, sadece o harfi cımbızlar.
-            const correctMatch = textContent.match(/cevap.*?([a-e])([\)\.\s]|$)/);
-
-            if (correctMatch) {
-                const correctAnswer = correctMatch[1]; // Sadece 'a', 'b', 'c', 'd' veya 'e' çıkar
-                
-                // KAPSAMLI CEVAP KONTROLÜ
-                // Öğrenci "D tümü...", "D şıkkı", "D seçeneği" veya sadece "D" demiş olabilir
-                const firstWord = transcript.split(' ')[0].replace(/[\.\)]/g, ''); // Söylediği ilk kelime ("d")
-
-                if (
-                    transcript === correctAnswer || 
-                    firstWord === correctAnswer || 
-                    transcript.includes(`${correctAnswer} şıkkı`) ||
-                    transcript.includes(`${correctAnswer} seçeneği`)
-                ) {
-                    isCorrect = true;
-                    checkMessage = "✅ Tebrikler, Doğru Bildiniz!";
-                    color = "#2f855a"; // Yeşil
-                    bgColor = "#f0fff4";
-                } else {
-                    checkMessage = `❌ Yanlış Cevap. Doğrusu: ${correctAnswer.toUpperCase()} Şıkkı`;
-                    color = "#c53030"; // Kırmızı
-                    bgColor = "#fff5f5";
-                }
-            } else {
-                checkMessage = "Sesiniz kaydedildi (Yapay zeka kutu içinde doğru şıkkı bulamadı)";
-            }
-
-            // Sonucu ekrana bas
-            answerDisplay.style.cssText = `margin-top: 15px; padding: 10px; background: ${bgColor}; border-left: 4px solid ${color}; font-weight: bold; color: ${color}; border-radius: 4px; font-size: 14px;`;
-            answerDisplay.innerHTML = `🎤 Sesiniz: <span style="font-weight: normal; font-style: italic;">"${event.results[0][0].transcript}"</span> <br> <span style="display:block; margin-top:5px;">${checkMessage}</span>`;
-            
-            // Cevap verildikten sonra "Cevabı Göster" sekmesini otomatik aç
-            const detailsTag = contentDiv.querySelector('details');
-            if (detailsTag) detailsTag.open = true;
-        }
-    };
-
-    recognition.onend = () => {
-        btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
-        btn.style.background = '#ebf8ff';
-        btn.style.color = '#2b6cb0';
-        btn.style.borderColor = '#90cdf4';
-        contentDiv.style.filter = "blur(0px)"; // Her ihtimale karşı bluru kaldır
-    };
-
-    recognition.onerror = (event) => {
-        console.error("Mikrofon Hatası:", event.error);
-        alert("Sizi duyamadım veya mikrofon izni verilmedi.");
-    };
-
-    recognition.start();
-}
-
 
 // Tuvali başlatan ana fonksiyon
 export function initCanvasCore(elements) {
@@ -208,12 +36,11 @@ export function initCanvasCore(elements) {
     });
 }
 
-// Seçili öğeyi dışarıdan okumak için
 export function getActiveCanvasItem() {
     return activeCanvasItem;
 }
 
-// Arayüze yeni kutu ekleyen fonksiyon
+// Arayüze manuel yeni kutu ekleyen fonksiyon
 export function createCanvasItem(type, name) {
     const item = document.createElement('div');
     item.classList.add('canvas-item', 'w-full');
@@ -230,10 +57,15 @@ export function createCanvasItem(type, name) {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'item-body';
     contentDiv.style.flex = "1";
-    contentDiv.innerHTML = `<span style="color: #999;">[Boş ${name}] - Üretmek için tıklayın.</span>`;
     item.appendChild(contentDiv);
 
-    addAudioSupport(item, contentDiv, type);
+    // 🔥 GÖREV 3 BURAYA EKLENDİ: Eğer sürüklenen şey Sesli Özet ise!
+    if (type === 'voice-summary') {
+        initVoiceSummaryBlock(contentDiv);
+    } else {
+        // Normal bir bloksa boş metnini yazdır
+        contentDiv.innerHTML = `<span style="color: #999;">[Boş ${name}] - Üretmek için tıklayın.</span>`;
+    }
 
     if (type === 'text') {
         contentDiv.setAttribute('contenteditable', 'true');
@@ -278,7 +110,6 @@ function addReorderEvents(item) {
     });
 }
 
-// Kutu seçme motoru
 function selectItem(item, type, name) {
     if (activeCanvasItem) activeCanvasItem.classList.remove('active');
     activeCanvasItem = item;
@@ -306,7 +137,6 @@ function selectItem(item, type, name) {
     }
 }
 
-// Global genişlik güncelleme
 window.updateWidth = (size) => {
     const activeItem = document.querySelector('.canvas-item.active');
     if (!activeItem) return;
@@ -349,9 +179,14 @@ export async function renderPageFromJSON(plan) {
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'item-body';
                 contentDiv.style.flex = "1";
-                contentDiv.innerHTML = `<span style="color: #666; font-style: italic;">⏳ Yapay Zeka Çiziyor...</span>`;
                 item.appendChild(contentDiv);
-                addAudioSupport(item, contentDiv, type);
+
+                // 🔥 GÖREV 3 BURAYA EKLENDİ: Orkestratör çizerken
+                if (type === 'voice-summary') {
+                    initVoiceSummaryBlock(contentDiv);
+                } else {
+                    contentDiv.innerHTML = `<span style="color: #666; font-style: italic;">⏳ Yapay Zeka Çiziyor...</span>`;
+                }
 
                 if (type === 'text') {
                     contentDiv.setAttribute('contenteditable', 'true');
@@ -363,15 +198,16 @@ export async function renderPageFromJSON(plan) {
                 addReorderEvents(item);
                 rowDiv.appendChild(item);
 
-                await generateContent(contentDiv, block);
+                // 🔥 DÜZELTME: generateContent'e "item" parametresini de yolladık
+                await generateContent(item, contentDiv, block);
             }
         }
         uiElements.canvas.appendChild(rowDiv);
     }
 }
 
-// Arkadaşının Geliştirdiği İçerik Üretme Fonksiyonu
-export async function generateContent(container, block) {
+// 🔥 DÜZELTME: İlk parametre olarak "item" eklendi
+export async function generateContent(item, container, block) {
     try {
         let type = block.type;
         let prompt = block.content || block.prompt || "Bu konu hakkında açıklayıcı içerik üret.";
@@ -392,6 +228,13 @@ export async function generateContent(container, block) {
             } else {
                 container.innerText = data.content;
             }
+            
+            // 🔥 DÜZELTME: Yapay zeka içeriği yazmayı bitirdikten SONRA ses butonunu ve bluru ekliyoruz!
+            // (Sesli özet bloğu ise okuma butonu eklememize gerek yok)
+            if(type !== 'voice-summary') {
+                addAudioSupport(item, container, block.type); 
+            }
+
         } else if (data.status === "NO_ACTION") {
             let formattedText = data.message.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
             container.innerHTML = `<div style="line-height:1.6;color:#333;">${formattedText}</div>`;
