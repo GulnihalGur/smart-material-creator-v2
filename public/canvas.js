@@ -6,62 +6,135 @@ let dragSourceItem = null;
 let uiElements = {};
 
 // Ses Motoru
-function addAudioSupport(item, contentDiv, type) {
+// GERÇEK SÖZLÜ SINAV MOTORU (Dinle & Konuş)
+export function addAudioSupport(item, contentDiv, type) { 
+    
+    // 🔥 YENİ: Eski bir ses butonu varsa onu sil (Çift buton çıkmasın)
+    const existingBtn = item.querySelector('.audio-btn');
+    if (existingBtn) existingBtn.remove();
+
     if (type === 'text' || type.startsWith('quiz')) {
         const playBtn = document.createElement('button');
-        playBtn.innerHTML = '🔊';
-        playBtn.title = 'Sesli Oku / Durdur';
-        playBtn.style.cssText = "position: absolute; top: 5px; right: 35px; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 14px; z-index: 10; transition: 0.2s;";
+        playBtn.className = 'audio-btn'; // 🔥 YENİ: Butona sınıf verdik
+        
+        const isQuiz = type.startsWith('quiz');
+        playBtn.innerHTML = isQuiz ? '🔊 Sözlü Sınavı Başlat' : '🔊 Oku';
+        playBtn.title = isQuiz ? 'Soruyu Dinle ve Sesli Cevapla' : 'Sesli Oku / Durdur';
+        
+        playBtn.style.cssText = "position: absolute; top: 5px; right: 35px; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold; color: #2b6cb0; z-index: 10; transition: 0.2s;";
 
-        playBtn.onmouseover = () => playBtn.style.transform = "scale(1.1)";
+        playBtn.onmouseover = () => playBtn.style.transform = "scale(1.05)";
         playBtn.onmouseout = () => playBtn.style.transform = "scale(1)";
 
-        // DİNLE-ANLA (BLUR) EFEKTİ: Eğer bu bir soruysa (quiz), metni gizle!
-        if (type.startsWith('quiz')) {
+        if (isQuiz) {
             contentDiv.style.filter = "blur(6px)";
-            contentDiv.style.transition = "filter 0.4s ease"; // Şık bir açılma animasyonu
-            contentDiv.style.cursor = "help"; // Fare imlecini soru işaretine çevirir
-            contentDiv.title = "Soruyu dinlemek için 🔊 butonuna basın veya metni görmek için tıklayın.";
+            contentDiv.style.transition = "filter 0.4s ease";
+            contentDiv.style.cursor = "help";
+            contentDiv.title = "Soruyu dinlemek için Sözlü Sınav butonuna basın veya metni görmek için tıklayın.";
 
-            // Eğer öğrenci pes edip metnin üzerine tıklarsa bluru kaldır
             contentDiv.addEventListener('click', () => {
-                contentDiv.style.filter = "blur(0px)";
+                contentDiv.style.filter = "blur(0px)"; 
             });
         }
 
         playBtn.onclick = (e) => {
-            e.stopPropagation(); // Tuvale tıklama olayını engelle
+            e.stopPropagation(); 
 
-            if (!('speechSynthesis' in window)) {
-                return alert("Tarayıcınız sesli okumayı desteklemiyor.");
-            }
-
-            // 🔥 Sese basıldığı an metin bulanıksa hemen netleştir!
-            if (type.startsWith('quiz')) {
-                contentDiv.style.filter = "blur(0px)";
-            }
+            if (!('speechSynthesis' in window)) return alert("Tarayıcınız sesli okumayı desteklemiyor.");
 
             if (speechSynthesis.speaking) {
                 speechSynthesis.cancel();
-            } else {
-                let textToRead = contentDiv.innerText.replace('🔊', '').replace('×', '');
-                const utterance = new SpeechSynthesisUtterance(textToRead);
-                
-                // Otomatik Dil Algılama (İngilizce / Türkçe)
-                const englishPattern = /\b(the|is|and|are|in|on|at|of)\b/gi;
-                if (englishPattern.test(textToRead)) {
-                    utterance.lang = 'en-US';
-                    utterance.rate = 1.0;     
-                } else {
-                    utterance.lang = 'tr-TR'; 
-                    utterance.rate = 0.9;     
-                }
-
-                speechSynthesis.speak(utterance);
+                return;
             }
+
+            let textToRead = contentDiv.innerText.replace('🔊 Sözlü Sınavı Başlat', '').replace('🔊 Oku', '').replace('×', '');
+            const utterance = new SpeechSynthesisUtterance(textToRead);
+            
+            const englishPattern = /\b(the|is|and|are|in|on|at|of)\b/gi;
+            if (englishPattern.test(textToRead)) {
+                utterance.lang = 'en-US';
+                utterance.rate = 1.0;     
+            } else {
+                utterance.lang = 'tr-TR'; 
+                utterance.rate = 0.9;     
+            }
+
+            if (isQuiz) {
+                utterance.onstart = () => {
+                    playBtn.innerHTML = '🗣️ Soru Okunuyor...';
+                    playBtn.style.background = '#bee3f8';
+                };
+                
+                utterance.onend = () => {
+                    if(typeof startVoiceExam === "function") startVoiceExam(playBtn, contentDiv);   
+                };
+            }
+
+            speechSynthesis.speak(utterance);
         };
         item.appendChild(playBtn);
     }
+}
+
+// DİNLEME (Sesten Metne) MOTORU
+function startVoiceExam(btn, contentDiv) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
+        return alert("Tarayıcınız mikrofonla ses tanımayı desteklemiyor (Lütfen Chrome kullanın).");
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'tr-TR'; // Öğrencinin Türkçe cevap vereceğini varsayıyoruz
+    recognition.interimResults = false;
+
+    // Butonu kırmızı mikrofon moduna geçir
+    btn.innerHTML = '🎤 Cevabınızı Söyleyin...';
+    btn.style.background = '#fed7d7';
+    btn.style.color = '#c53030';
+    btn.style.borderColor = '#fc8181';
+
+    recognition.onstart = () => {
+        console.log("🎤 Mikrofon dinliyor...");
+    };
+
+    recognition.onresult = (event) => {
+        // Öğrencinin söylediği kelimeyi al
+        const transcript = event.results[0][0].transcript;
+        
+        // 1. İhtimal: Eğer blokta bir input/textarea (Boşluk doldurma) varsa doğrudan oraya yaz!
+        const inputField = contentDiv.querySelector('input[type="text"], textarea');
+        if (inputField) {
+            inputField.value = transcript;
+        } else {
+            // 2. İhtimal: Çoktan seçmeli ise şıkkı kutunun altına zarifçe bir panelle bas
+            let answerDisplay = contentDiv.querySelector('.voice-answer-display');
+            if (!answerDisplay) {
+                answerDisplay = document.createElement('div');
+                answerDisplay.className = 'voice-answer-display';
+                answerDisplay.style.cssText = "margin-top: 15px; padding: 10px; background: #e6fffa; border-left: 4px solid #319795; font-weight: bold; color: #234e52; border-radius: 4px;";
+                contentDiv.appendChild(answerDisplay);
+            }
+            answerDisplay.innerHTML = `🎤 Sesli Cevabınız: <span style="color: #285e61; font-weight: normal; font-style: italic;">"${transcript}"</span>`;
+        }
+    };
+
+    recognition.onend = () => {
+        // Sınav bitince butonu eski haline getir
+        btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
+        btn.style.background = '#ebf8ff';
+        btn.style.color = '#2b6cb0';
+        btn.style.borderColor = '#90cdf4';
+    };
+
+    recognition.onerror = (event) => {
+        console.error("Mikrofon Hatası:", event.error);
+        btn.innerHTML = '🔊 Sözlü Sınavı Başlat';
+    };
+
+    // Tarayıcıdan ilk kullanımda mikrofon izni isteyip dinlemeye başlar
+    recognition.start();
 }
 
 
