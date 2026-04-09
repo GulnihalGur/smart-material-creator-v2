@@ -5,7 +5,7 @@ let activeCanvasItem = null;
 let dragSourceItem = null;
 let uiElements = {};
 
-// --- YENİ: BEDAVA VE SINIRSIZ SES MOTORU (Web Speech API) ---
+// Ses Motoru
 function addAudioSupport(item, contentDiv, type) {
     // Sadece okunabilir bloklara (Metin ve Soru) ses butonu ekliyoruz
     if (type === 'text' || type.startsWith('quiz')) {
@@ -32,15 +32,25 @@ function addAudioSupport(item, contentDiv, type) {
                 // Konuşmuyorsa, kutunun içindeki metni alıp okut
                 let textToRead = contentDiv.innerText.replace('🔊', '').replace('×', ''); // Butonları okumasın
                 const utterance = new SpeechSynthesisUtterance(textToRead);
-                utterance.lang = 'tr-TR'; // Türkçe telaffuz
-                utterance.rate = 0.9; // Biraz yavaş ve tane tane okusun
+                
+                // Otomatik Dil Algılama (Basit Versiyon)
+                // Eğer metinde İngilizce'ye özgü çok sık geçen kelimeler varsa en-US yap
+                const englishPattern = /\b(the|is|and|are|in|on|at|of)\b/gi;
+                if (englishPattern.test(textToRead)) {
+                    utterance.lang = 'en-US'; // İngilizce telaffuz
+                    utterance.rate = 1.0;     // Normal hız
+                } else {
+                    utterance.lang = 'tr-TR'; // Türkçe telaffuz
+                    utterance.rate = 0.9;     // Biraz yavaş ve tane tane
+                }
+
                 speechSynthesis.speak(utterance);
             }
         };
         item.appendChild(playBtn);
     }
 }
-// -----------------------------------------------------------
+
 
 // Tuvali başlatan ana fonksiyon
 export function initCanvasCore(elements) {
@@ -82,6 +92,8 @@ export function getActiveCanvasItem() {
 export function createCanvasItem(type, name) {
     const item = document.createElement('div');
     item.classList.add('canvas-item', 'w-full');
+    item.style.display = "flex";          
+    item.style.flexDirection = "column";
     item.setAttribute('data-type', type);
     
     const delBtn = document.createElement('button');
@@ -92,6 +104,7 @@ export function createCanvasItem(type, name) {
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'item-body';
+    contentDiv.style.flex = "1";
     contentDiv.innerHTML = `<span style="color: #999;">[Boş ${name}] - Üretmek için tıklayın.</span>`;
     item.appendChild(contentDiv);
 
@@ -187,6 +200,7 @@ export async function renderPageFromJSON(plan) {
         rowDiv.style.gap = "15px";
         rowDiv.style.marginBottom = "15px";
         rowDiv.style.width = "100%";
+        rowDiv.style.alignItems = "stretch";
 
         for (const block of row.children) {
             const repeat = block.count || 1;
@@ -197,6 +211,8 @@ export async function renderPageFromJSON(plan) {
                 const item = document.createElement('div');
                 item.classList.add('canvas-item');
                 item.style.flex = "1"; 
+                item.style.display = "flex";          
+                item.style.flexDirection = "column";
                 item.setAttribute('data-type', type);
 
                 const delBtn = document.createElement('button');
@@ -207,6 +223,7 @@ export async function renderPageFromJSON(plan) {
 
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'item-body';
+                contentDiv.style.flex = "1";
                 contentDiv.innerHTML = `<span style="color: #666; font-style: italic;">⏳ Yapay Zeka Çiziyor...</span>`;
                 item.appendChild(contentDiv);
                 addAudioSupport(item, contentDiv, type);

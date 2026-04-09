@@ -478,7 +478,7 @@ app.post('/api/analyze', async (req, res) => {
             {
                 "blockNumber": 2,
                 "reason": "Bu soru seti, üstteki metnin bağlamından kopuk.",
-                "suggestedPrompt": "Hücre bölünmesi evreleri hakkında zorlayıcı bir soru hazırla"
+                "suggestedPrompt": "Konuya uygun yeni bir prompt önerisi"
             }
         ]
     }
