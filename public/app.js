@@ -103,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const wrapper = document.createElement("div");
                 wrapper.innerHTML = data.content;
                 body.appendChild(wrapper);
+                addAudioSupport(activeItem, body, rawType);
             } else {
                 body.innerHTML = `<span style="color: gray;">İçerik üretilemedi</span>`;
             }

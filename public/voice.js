@@ -1,8 +1,15 @@
 // Ses Motoru
 // GERÇEK SÖZLÜ SINAV MOTORU (Dinle & Konuş)
+
 export function addAudioSupport(item, contentDiv, type) { 
+    // 🔥 KRİTİK DÜZELTME 1: Tip undefined ise uygulamanın çökmesini engelle
+    if (!type) return;
+
+    // 🔥 KRİTİK DÜZELTME 2: Butonun kutu dışına uçmasını (görünmez olmasını) engellemek için
+    // Ana kapsayıcıyı 'relative' yapıyoruz.
+    item.style.position = "relative";
     
-    // 🔥 YENİ: Eski bir ses butonu varsa onu sil (Çift buton çıkmasın)
+    // Eski bir ses butonu varsa onu sil (Çift buton çıkmasın)
     const existingBtn = item.querySelector('.audio-btn');
     if (existingBtn) existingBtn.remove();
 
@@ -25,8 +32,10 @@ export function addAudioSupport(item, contentDiv, type) {
             contentDiv.style.cursor = "help";
             contentDiv.title = "Soruyu dinlemek için Sözlü Sınav butonuna basın veya metni görmek için tıklayın.";
 
-            contentDiv.addEventListener('click', () => {
-                contentDiv.style.filter = "blur(0px)"; 
+            // 🔥 KRİTİK DÜZELTME 3: Kullanıcı metne tıkladığında bluru kaldıran kod eklendi
+            contentDiv.addEventListener('click', function unblur() {
+                contentDiv.style.filter = "blur(0px)";
+                contentDiv.title = ""; // İpucu yazısını temizle
             });
         }
 
@@ -88,7 +97,6 @@ function startVoiceExam(btn, contentDiv) {
     btn.style.borderColor = '#fc8181';
 
     recognition.onresult = (event) => {
-        // 1. Öğrencinin söylediği metni al, küçült ve temizle
         const transcript = event.results[0][0].transcript.toLowerCase().trim();
         
         // Öğrenci cevap verdiği an sorunun bluru tamamen kalkar
@@ -110,19 +118,14 @@ function startVoiceExam(btn, contentDiv) {
             let color = "#319795"; 
             let bgColor = "#e6fffa";
 
-            // METNİ TEMİZLE: Kutu içindeki tüm HTML satır atlamalarını tek boşluğa indirger
             const textContent = contentDiv.innerText.toLowerCase().replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ');
             
-            // ZEKİ REGEX: "cevap" kelimesinden sonra gelen ilk a, b, c, d, e harfini yakalar.
-            // İster "Cevap: D)", ister "Cevap D" yazsın, sadece o harfi cımbızlar.
             const correctMatch = textContent.match(/cevap.*?([a-e])([\)\.\s]|$)/);
 
             if (correctMatch) {
-                const correctAnswer = correctMatch[1]; // Sadece 'a', 'b', 'c', 'd' veya 'e' çıkar
+                const correctAnswer = correctMatch[1]; 
                 
-                // KAPSAMLI CEVAP KONTROLÜ
-                // Öğrenci "D tümü...", "D şıkkı", "D seçeneği" veya sadece "D" demiş olabilir
-                const firstWord = transcript.split(' ')[0].replace(/[\.\)]/g, ''); // Söylediği ilk kelime ("d")
+                const firstWord = transcript.split(' ')[0].replace(/[\.\)]/g, ''); 
 
                 if (
                     transcript === correctAnswer || 
@@ -132,22 +135,20 @@ function startVoiceExam(btn, contentDiv) {
                 ) {
                     isCorrect = true;
                     checkMessage = "✅ Tebrikler, Doğru Bildiniz!";
-                    color = "#2f855a"; // Yeşil
+                    color = "#2f855a"; 
                     bgColor = "#f0fff4";
                 } else {
                     checkMessage = `❌ Yanlış Cevap. Doğrusu: ${correctAnswer.toUpperCase()} Şıkkı`;
-                    color = "#c53030"; // Kırmızı
+                    color = "#c53030"; 
                     bgColor = "#fff5f5";
                 }
             } else {
                 checkMessage = "Sesiniz kaydedildi (Yapay zeka kutu içinde doğru şıkkı bulamadı)";
             }
 
-            // Sonucu ekrana bas
             answerDisplay.style.cssText = `margin-top: 15px; padding: 10px; background: ${bgColor}; border-left: 4px solid ${color}; font-weight: bold; color: ${color}; border-radius: 4px; font-size: 14px;`;
             answerDisplay.innerHTML = `🎤 Sesiniz: <span style="font-weight: normal; font-style: italic;">"${event.results[0][0].transcript}"</span> <br> <span style="display:block; margin-top:5px;">${checkMessage}</span>`;
             
-            // Cevap verildikten sonra "Cevabı Göster" sekmesini otomatik aç
             const detailsTag = contentDiv.querySelector('details');
             if (detailsTag) detailsTag.open = true;
         }
@@ -158,7 +159,7 @@ function startVoiceExam(btn, contentDiv) {
         btn.style.background = '#ebf8ff';
         btn.style.color = '#2b6cb0';
         btn.style.borderColor = '#90cdf4';
-        contentDiv.style.filter = "blur(0px)"; // Her ihtimale karşı bluru kaldır
+        contentDiv.style.filter = "blur(0px)"; 
     };
 
     recognition.onerror = (event) => {

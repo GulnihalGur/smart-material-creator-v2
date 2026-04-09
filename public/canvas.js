@@ -209,8 +209,9 @@ export async function renderPageFromJSON(plan) {
 // 🔥 DÜZELTME: İlk parametre olarak "item" eklendi
 export async function generateContent(item, container, block) {
     try {
-        let type = block.type;
-        let prompt = block.content || block.prompt || "Bu konu hakkında açıklayıcı içerik üret.";
+        const rawType = block.type;
+        let type = rawType;
+        let prompt = block.content || block.prompt || "Bu konu hakkında içerik üret.";
 
         if (type && type.startsWith("quiz")) {
             type = "quiz";
@@ -220,19 +221,15 @@ export async function generateContent(item, container, block) {
             if (block.type === "quiz-short") prompt += " Kısa cevaplı, farklı bir soru üret.";
         }
 
-        const data = await generateBlockContent(prompt, type, block.type);
+        const data = await generateBlockContent(prompt, type, rawType);
 
         if (data.status === "SUCCESS") {
-            if (data.type === "html") {
-                container.innerHTML = data.content;
-            } else {
-                container.innerText = data.content;
-            }
             
-            // 🔥 DÜZELTME: Yapay zeka içeriği yazmayı bitirdikten SONRA ses butonunu ve bluru ekliyoruz!
-            // (Sesli özet bloğu ise okuma butonu eklememize gerek yok)
-            if(type !== 'voice-summary') {
-                addAudioSupport(item, container, block.type); 
+            container.innerHTML = data.content;
+
+            // 🔥 KRİTİK DÜZELTME: Sesli özet değilse ses desteği ekle
+            if (rawType !== 'voice-summary') {
+                addAudioSupport(item, container, rawType);
             }
 
         } else if (data.status === "NO_ACTION") {
