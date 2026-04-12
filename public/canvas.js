@@ -42,6 +42,23 @@ export function getActiveCanvasItem() {
 
 // Arayüze manuel yeni kutu ekleyen fonksiyon
 export function createCanvasItem(type, name) {
+    
+        // 🔥 YENİ KURAL: voice-summary sadece içerik varsa eklenebilir
+    if (type === 'voice-summary') {
+        const existingItems = document.querySelectorAll('.canvas-item');
+
+        // voice-summary dışındaki blokları say
+        const validBlocks = Array.from(existingItems).filter(item => {
+            const t = item.getAttribute('data-type');
+            return t !== 'voice-summary';
+        });
+
+        if (validBlocks.length === 0) {
+            alert("⚠️ Önce sayfaya içerik eklemelisin (metin, görsel veya soru).");
+            return;
+        }
+    }
+
     const item = document.createElement('div');
     item.classList.add('canvas-item', 'w-full');
     item.style.display = "flex";          
