@@ -310,11 +310,18 @@ app.post('/api/generate', async (req, res) => {
     `;
 
     try {
-
         const result = await AiService.processIntent(finalPrompt, mockTenantContext);
 
         console.log("BLOCK TYPE:", blockType);
         console.log("AI RAW:", result.message);
+
+        // KRİTİK DÜZELTME: AiService hata döndürdüyse bunu Frontend'e HATA olarak bildir
+        if (result.status === "ERROR") {
+            return res.status(500).json({
+                status: "ERROR",
+                message: result.message
+            });
+        }
 
         let cleanContent = result.message;
 

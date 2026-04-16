@@ -20,7 +20,15 @@ export async function generatePagePlan(prompt) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ prompt: prompt + " Bu konu için öğretici ve düzenli bir sayfa oluştur." })
         });
-        return await res.json();
+        
+        const data = await res.json();
+        
+        // KRİTİK DÜZELTME: Sunucu hatası veya backend'den gelen error varsa catch bloğuna at!
+        if (!res.ok || data.error) {
+            throw new Error(data.error || "Plan oluşturulamadı");
+        }
+        
+        return data;
     } catch (err) {
         console.error("Plan Hatası:", err);
         throw err;

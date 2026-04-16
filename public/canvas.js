@@ -146,6 +146,11 @@ window.updateWidth = (size) => {
 
 // Arkadaşının Mükemmel Orkestratör Render Fonksiyonu
 export async function renderPageFromJSON(plan) {
+
+    if (!plan || !plan.layout) {
+        throw new Error("Geçersiz sayfa planı! Yapay zeka doğru formatta yanıt vermedi.");
+    }
+
     uiElements.canvas.innerHTML = ''; 
     if (uiElements.emptyState) uiElements.emptyState.style.display = 'none';
 

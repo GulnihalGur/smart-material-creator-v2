@@ -49,7 +49,19 @@ export function addAudioSupport(item, contentDiv, type) {
                 return;
             }
 
-            let textToRead = contentDiv.innerText.replace('🔊 Sözlü Sınavı Başlat', '').replace('🔊 Oku', '').replace('×', '');
+            // 1. Kutunun sanal bir kopyasını oluştur (orijinali bozulmasın diye)
+            const tempDiv = contentDiv.cloneNode(true);
+
+            // 2. Kopyanın içindeki gizli "Cevap (details)" bölümünü sil
+            const detailsTag = tempDiv.querySelector('details');
+            if (detailsTag) detailsTag.remove();
+
+            // 3. Kopyanın içindeki butonları (Sözlü Sınav, Oku, Çarpı) sil
+            const buttons = tempDiv.querySelectorAll('button, .audio-btn, .delete-btn');
+            buttons.forEach(btn => btn.remove());
+
+            // 4. Sadece tertemiz kalan soru ve şıkları al
+            let textToRead = tempDiv.innerText.trim();
             const utterance = new SpeechSynthesisUtterance(textToRead);
             
             const englishPattern = /\b(the|is|and|are|in|on|at|of)\b/gi;
@@ -207,14 +219,31 @@ export function initVoiceSummaryBlock(contentDiv) {
             resultDiv.innerHTML = `<strong>🗣️ Söyledikleriniz:</strong> <i>"${transcript}"</i><br><br><span style="color: gray;">🤖 Analiz bekleniyor...</span>`;
 
             try {
-                const res = await fetch("/api/generate", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                        prompt: `Öğrencinin konu özeti: "${transcript}". Lütfen bir öğretmen gibi bu özeti değerlendir. 100 üzerinden bir puan ver ve eksik/doğru yerleri kısaca söyle.`, 
-                        blockType: "text"
-                    })
-                });
+                const pageContent = Array.from(document.querySelectorAll('.canvas-item'))
+                .map(item => item.innerText)
+                .join("\n\n");
+
+            const shortContent = pageContent.slice(0, 1000);
+
+            const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt: `
+            Sayfa içeriği:
+            ${shortContent}
+
+            Öğrenci özeti:
+            "${transcript}"
+
+            Görev:
+            Öğrencinin anlatımı sayfadaki içerikle ne kadar uyumlu?
+            Eksikleri ve doğruları söyle.
+            100 üzerinden puan ver.
+            `,
+                    blockType: "text"
+                })
+            });
                 const data = await res.json();
                 
                 if(data.status === "SUCCESS" || data.status === "NO_ACTION") {
